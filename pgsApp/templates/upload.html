@@ -1,0 +1,87 @@
+{% load qr_code %}{% load static %}
+<style>
+    img.img-thumbnail.avatar {
+        max-width: 360px;
+        max-height: 480px;
+    }
+</style>
+<div class="container-fluid">
+    <form action="" id="upload-form">
+        <input type="hidden" name="user" value="{{user.id}}">
+        <div class="mb-3">
+            <label for="image" class="form-label">Upload File</label>
+            <input class="form-control" type="file" name="image_path" accept="images/*" id="image" onchange="display_image(this)">
+        </div>
+        <div class="mb-3">
+            <img src="{% static 'assets/default/img/no-image-available.png' %}" alt="" class="img-thumbnail avatar" id="cimg">
+        </div>
+    </form>
+</div>
+<script>
+    function display_image(input) {
+        if (input.files && input.files[0]) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                $('#cimg').attr('src', e.target.result);
+                var img_thumbnail = $(input).clone()
+                $('#upload-form input[name="thumbnail_path"]').remove()
+                img_thumbnail.attr('name', 'thumbnail_path')
+                img_thumbnail.removeAttr('onchange')
+                img_thumbnail.addClass('d-none')
+                $('#upload-form').prepend(img_thumbnail)
+            }
+            reader.readAsDataURL(input.files[0]);
+        } else {
+            $('#upload-form input[name="thumbnail_path"]').remove()
+            $('#cimg').attr('src', "{% static 'assets/default/img/no-image-available.png' %}");
+        }
+    }
+    $(function() {
+        $('#upload-form').submit(function(e) {
+            e.preventDefault();
+            var _this = $(this)
+            $('.err-msg').remove();
+            var el = $('<div>')
+            el.addClass("alert alert-danger err-msg")
+            el.hide()
+            if (_this[0].checkValidity() == false) {
+                _this[0].reportValidity();
+                return false;
+            }
+            start_loader();
+            $.ajax({
+                headers: {
+                    "X-CSRFToken": '{{csrf_token}}'
+                },
+                url: "{% url 'save-upload' %}",
+                data: new FormData($(this)[0]),
+                cache: false,
+                contentType: false,
+                processData: false,
+                method: 'POST',
+                type: 'POST',
+                dataType: 'json',
+                error: err => {
+                    console.log(err)
+                    alert("An error occured", 'error');
+                    end_loader();
+                },
+                success: function(resp) {
+                    if (typeof resp == 'object' && resp.status == 'success') {
+                        location.reload()
+                    } else if (resp.status == 'failed' && !!resp.msg) {
+                        el.text(resp.msg)
+                    } else {
+                        el.text("An error occured", 'error');
+                        end_loader();
+                        console.err(resp)
+                    }
+                    _this.prepend(el)
+                    el.show('slow')
+                    $("html, body, .modal").scrollTop(0);
+                    end_loader()
+                }
+            })
+        })
+    })
+</script>
